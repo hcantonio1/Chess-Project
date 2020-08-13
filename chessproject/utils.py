@@ -2,6 +2,7 @@ import pyglet
 import resources
 #import abc
 
+DEFAULT_PIECE_SCALE = 0.8
 
 class Piece():
     def __init__(self, file, rank, player):
@@ -13,6 +14,17 @@ class Piece():
 
     def __str__(self):
         return self.letter + chr(self.file+97) + str(self.rank+1)
+
+    def get_sprite(self):
+        image = resources.all_pieces[self.player][self.letter]
+        resources.center_image(image)
+        sprite = pyglet.sprite.Sprite(image)
+        sprite.scale *= DEFAULT_PIECE_SCALE
+
+        sprite.x = 63 + (self.file + 0.5)*(59.25)       # we don't want magic numbers
+        sprite.y = 62 + (self.rank + 0.5)*(60)          # we don't want magic numbers
+
+        return sprite
 
     #@abc.abstractmethod
     def move(self, square):
@@ -29,37 +41,37 @@ class King(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "K"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 class Queen(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "Q"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 class Bishop(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "B"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 class Knight(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "N"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 class Rook(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "R"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 class Pawn(Piece):
     def __init__(self, file, rank, player):
         super().__init__(file, rank, player)
         self.letter = "P"
-        self.sprite = pyglet.sprite.Sprite(resources.all_pieces[player][self.letter])
+        self.sprite = self.get_sprite()
 
 
 def get_pieces(position_str):
@@ -79,7 +91,7 @@ def get_pieces(position_str):
                 pieces.append(create_piece(char, j, 7-i))
                 j += 1
             else:
-                j = 8
+                j += int(char)
         i += 1
     return pieces
 
