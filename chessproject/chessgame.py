@@ -43,6 +43,10 @@ class ChessGame:
             i += 1
         return pieces
 
+    def is_out_of_bounds_fr(self, file, rank):
+        if file > 7 or rank > 7:
+            return True
+
 
     def create_piece(self, letter, file, rank):
         piece = letter.upper()
@@ -66,7 +70,10 @@ class ChessGame:
 
     def on_click(self, x, y):
         print(self.board.square_of_xy(x, y))
-        if self.a_piece_is_selected:
+        file, rank = self.board.file_rank_of_xy(x, y)
+        if self.is_out_of_bounds_fr(file, rank):
+            print("Piece out of bounds. Try again.")
+        elif self.a_piece_is_selected:
             self.selected_piece.on_click(x, y)
             self.a_piece_is_selected = False
             self.selected_piece = None
