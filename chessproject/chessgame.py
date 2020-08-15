@@ -44,7 +44,7 @@ class ChessGame:
         return pieces
 
     def is_out_of_bounds_fr(self, file, rank):
-        if file > 7 or rank > 7:
+        if file > 7 or rank > 7 or file < 0 or rank < 0:
             return True
 
 
@@ -85,4 +85,3 @@ class ChessGame:
                     print(str(piece) + " is selected")
                     piece.on_click(x, y)
                     break
-
