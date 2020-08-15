@@ -144,7 +144,7 @@ class Knight(Piece):
 
         if abs(df) == 2:
             return abs(dr) == 1
-        if abs(dr) == 1:
+        if abs(dr) == 2:
             return abs(df) == 1
         return False
 
