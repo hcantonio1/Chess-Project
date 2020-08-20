@@ -1,0 +1,10 @@
+
+20/08/2020
+new function piece_at_square for chessgame.py
+bishops and rooks has incorrect implementation of blockable movement
+finally fixed that implementation; consequentially also applies to queens
+Next: use square for __init__ of pieces instead of file, rank
+
+Before 20/08/2020
+-interactive point and click chess
+-pieces can move their normal way if not for blockings

@@ -69,10 +69,9 @@ class ChessGame:
         self.batch.draw()
 
     def on_click(self, x, y):
-        print(self.board.square_of_xy(x, y))
         file, rank = self.board.file_rank_of_xy(x, y)
         if self.is_out_of_bounds_fr(file, rank):
-            print("Piece out of bounds. Try again.")
+            pass
         elif self.a_piece_is_selected:
             self.selected_piece.on_click(x, y)
             self.a_piece_is_selected = False
@@ -85,3 +84,11 @@ class ChessGame:
                     print(str(piece) + " is selected")
                     piece.on_click(x, y)
                     break
+
+    def piece_at_square(self, square):
+        # can be O(1) with 64 square objects
+        for piece in self.pieces:
+            #print(square, piece.square)
+            if square == piece.square:
+                return piece
+        return None

@@ -1,11 +1,12 @@
 import pyglet
+from math import copysign
 import resources
 import abc
 
 DEFAULT_PIECE_SCALE = 0.8
 DEFAULT_BOARD_SCALE = 1
 BOARD_LEFTMOST = 63*DEFAULT_BOARD_SCALE
-BOARD_BOTTOMOST = 62*DEFAULT_BOARD_SCALE
+BOARD_BOTTOMMOST = 62*DEFAULT_BOARD_SCALE
 BOARD_SQUARE_WIDTH = 59.25*DEFAULT_BOARD_SCALE
 BOARD_SQUARE_HEIGHT = 60*DEFAULT_BOARD_SCALE
 
@@ -14,7 +15,7 @@ class Board:
     def __init__(self):
         self.sprite = resources.board_sprite
         self.leftmost_x = BOARD_LEFTMOST
-        self.bottomost_y = BOARD_BOTTOMOST
+        self.bottommost_y = BOARD_BOTTOMMOST
         self.square_width = BOARD_SQUARE_WIDTH
         self.square_height = BOARD_SQUARE_HEIGHT
 
@@ -29,7 +30,7 @@ class Board:
 
     def file_rank_of_xy(self, tx, ty):
         file = round((tx-self.leftmost_x)/self.square_width - 0.5)
-        rank = round((ty-self.bottomost_y)/self.square_height - 0.5)
+        rank = round((ty-self.bottommost_y)/self.square_height - 0.5)
         return (file, rank)
 
     def square_of_xy(self, tx, ty):
@@ -42,10 +43,12 @@ class Board:
 class Piece():
     def __init__(self, file, rank, player, chessgame):
         self.chessgame = chessgame
+        self.board = chessgame.board
         self.player = player
         self.type = type
         self.file = file
         self.rank = rank
+        self.square = self.board.square_of_fr(file, rank)
         self.letter = "P"
 
         self.is_selected = False
@@ -58,13 +61,23 @@ class Piece():
         resources.center_image(image)
         sprite = pyglet.sprite.Sprite(image)
         sprite.scale *= DEFAULT_PIECE_SCALE
-        sprite.x = self.chessgame.board.leftmost_x + (self.file + 0.5)*self.chessgame.board.square_width
-        sprite.y = self.chessgame.board.bottomost_y + (self.rank + 0.5)*self.chessgame.board.square_height
+        sprite.x = self.board.leftmost_x + (self.file + 0.5)*self.board.square_width
+        sprite.y = self.board.bottommost_y + (self.rank + 0.5)*self.board.square_height
         return sprite
 
     def update_sprite_position(self):
-        self.sprite.x = self.chessgame.board.leftmost_x + (self.file + 0.5)*self.chessgame.board.square_width
-        self.sprite.y = self.chessgame.board.bottomost_y + (self.rank + 0.5)*self.chessgame.board.square_height
+        self.sprite.x = self.board.leftmost_x + (self.file + 0.5)*self.board.square_width
+        self.sprite.y = self.board.bottommost_y + (self.rank + 0.5)*self.board.square_height
+
+    def square_has_enemy(self, square):
+        piece = self.chessgame.piece_at_square(square)
+        if piece is None: return False
+        return piece.player != self.player
+
+    def square_has_friendly(self, square):
+        piece = self.chessgame.piece_at_square(square)
+        if piece is None: return False
+        return piece.player == self.player
 
     def is_on(self, tx, ty):
         return abs(self.sprite.x - tx) < self.sprite.width//2 and abs(self.sprite.y - ty) < self.sprite.height//2
@@ -81,10 +94,12 @@ class Piece():
                 self.is_selected = False
 
     def move(self, square):
+        is_capturing = self.square_has_enemy(square)
         if self.guards(square):
             file, rank = self.chessgame.board.file_rank_of_sq(square)
             self.file = file
             self.rank = rank
+            self.square = self.board.square_of_fr(file, rank)
             self.update_sprite_position()
 
 
@@ -97,13 +112,13 @@ class King(Piece):
         super().__init__(file, rank, player, chessgame)
         self.letter = "K"
         self.sprite = self.get_sprite()
-        print(self.sprite.width)
 
     def guards(self, square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
-        print(file, rank)
-        print(abs(file-self.file), abs(rank-self.rank))
-        return (abs(self.rank - rank) == 1 or abs(self.file - file) == 1) and abs(self.rank - rank) < 2 and abs(self.file - file) < 2
+        file, rank = self.board.file_rank_of_sq(square)
+        df = file - self.file
+        dr = rank - self.rank
+
+        return (abs(dr) == 1 or abs(df) == 1) and abs(dr) < 2 and abs(df) < 2
 
 
 
@@ -114,7 +129,7 @@ class Queen(Piece):
         self.sprite = self.get_sprite()
 
     def guards(self, square):
-        return Rook.guards(square) or Bishop.guards(square)
+        return Rook.guards(self, square) or Bishop.guards(self, square)
 
 class Bishop(Piece):
     def __init__(self, file, rank, player, chessgame):
@@ -123,13 +138,27 @@ class Bishop(Piece):
         self.sprite = self.get_sprite()
 
     def guards(self, square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
+        file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
 
-        if abs(df) == abs(dr):
-            return True
-        return False
+        is_basic_attack = abs(df) == abs(dr)
+        is_blocked = False
+        if not is_basic_attack: return False
+
+        stepf = int(copysign(1, df))
+        stepr = int(copysign(1, dr))
+        f = self.file
+        r = self.rank
+
+        for i in range(max(abs(df), abs(dr))):
+            if i == 0: continue
+            sq = self.board.square_of_fr(f + stepf*i, r + stepr*i)
+            if self.chessgame.piece_at_square(sq) is not None:
+                is_blocked = True
+                break
+
+        return is_basic_attack and not is_blocked
 
 class Knight(Piece):
     def __init__(self, file, rank, player, chessgame):
@@ -138,15 +167,11 @@ class Knight(Piece):
         self.sprite = self.get_sprite()
 
     def guards(self, square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
+        file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
 
-        if abs(df) == 2:
-            return abs(dr) == 1
-        if abs(dr) == 2:
-            return abs(df) == 1
-        return False
+        return (abs(df) == 2 and abs(dr) == 1) or (abs(dr) == 2 and abs(df) == 1)
 
 class Rook(Piece):
     def __init__(self, file, rank, player, chessgame):
@@ -155,15 +180,27 @@ class Rook(Piece):
         self.sprite = self.get_sprite()
 
     def guards(self, square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
+        file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
 
-        if dr == 0:
-            return df != 0
-        if df == 0:
-            return dr != 0
-        return False
+        is_basic_attack = (df == 0 and dr != 0) or (dr == 0 and df != 0)
+        is_blocked = False
+        if not is_basic_attack: return False
+
+        stepf = int(copysign(1, df)) if df else 0
+        stepr = int(copysign(1, dr)) if dr else 0
+        f = self.file
+        r = self.rank
+
+        for i in range(max(abs(df), abs(dr))):
+            if i == 0: continue
+            sq = self.board.square_of_fr(f + stepf*i, r + stepr*i)
+            if self.chessgame.piece_at_square(sq) is not None:
+                is_blocked = True
+                break
+
+        return is_basic_attack and not is_blocked
 
 class Pawn(Piece):
     def __init__(self, file, rank, player, chessgame):
@@ -173,7 +210,7 @@ class Pawn(Piece):
 
 
     def can_reach(square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
+        file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
 
@@ -186,14 +223,9 @@ class Pawn(Piece):
         return False
 
     def guards(self, square):
-        file, rank = self.chessgame.board.file_rank_of_sq(square)
+        file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
 
-        if abs(df) == 1 and abs(dr) == 1:
-            if self.player == 0:
-                return dr > 0
-            if self.player == 1:
-                return dr < 0
-        return False
-
+        is_diag = abs(df) == 1 and abs(dr) == 1
+        return is_diag and ((self.player == 0 and dr > 0) or (self.player == 1 and dr < 0))
