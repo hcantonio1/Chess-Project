@@ -6,8 +6,8 @@ That is, the users can click to play the game until checkmate; and they'd have t
 Optimization is not a priority, only for fun.
 
 The folowing lines list the possible issues to be created and fixed until the end of the project.
--introduce difference between capturing and moving (required by pawn)
 -handle piece capturing
+-handle en passant
 -handle pawn promotion (may require extra work if to allow underpromotion)
 -given a position, determine whether a king is on check
 -given a position, determine whether a king is on checkmate
