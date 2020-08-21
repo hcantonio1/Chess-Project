@@ -36,7 +36,8 @@ class ChessGame:
                 except ValueError:
                     is_int = False
                 if not is_int:
-                    pieces.append(self.create_piece(char, j, 7-i))
+                    sq = self.board.square_of_fr(j, 7-i)
+                    pieces.append(self.create_piece(char, sq))
                     j += 1
                 else:
                     j += int(char)
@@ -48,21 +49,21 @@ class ChessGame:
             return True
 
 
-    def create_piece(self, letter, file, rank):
+    def create_piece(self, letter, square):
         piece = letter.upper()
         player = 0 if piece == letter else 1
         if piece == "K":
-            return bp.King(file, rank, player, self)
+            return bp.King(square, player, self)
         if piece == "Q":
-            return bp.Queen(file, rank, player, self)
+            return bp.Queen(square, player, self)
         if piece == "B":
-            return bp.Bishop(file, rank, player, self)
+            return bp.Bishop(square, player, self)
         if piece == "N":
-            return bp.Knight(file, rank, player, self)
+            return bp.Knight(square, player, self)
         if piece == "R":
-            return bp.Rook(file, rank, player, self)
+            return bp.Rook(square, player, self)
         if piece == "P":
-            return bp.Pawn(file, rank, player, self)
+            return bp.Pawn(square, player, self)
 
     def on_draw(self):
         self.board.draw()

@@ -1,5 +1,13 @@
+21/08/2020
+Pieces are now initialized using square and not file, rank
+All pieces now move and capture normally, except captured pieces are to be eliminated from the board
+En passant not yet implemented
+Next:
+Eliminate captured pieces
+Implement en passant
 
 20/08/2020
+corrected bottommost spelling
 new function piece_at_square for chessgame.py
 bishops and rooks has incorrect implementation of blockable movement
 finally fixed that implementation; consequentially also applies to queens

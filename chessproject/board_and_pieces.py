@@ -41,15 +41,18 @@ class Board:
 
 
 class Piece():
-    def __init__(self, file, rank, player, chessgame):
+    def __init__(self, square, player, chessgame):
         self.chessgame = chessgame
         self.board = chessgame.board
         self.player = player
         self.type = type
+        self.letter = "P"
+
+        file, rank = self.board.file_rank_of_sq(square)
+        self.square = square
         self.file = file
         self.rank = rank
-        self.square = self.board.square_of_fr(file, rank)
-        self.letter = "P"
+
 
         self.is_selected = False
 
@@ -94,22 +97,23 @@ class Piece():
                 self.is_selected = False
 
     def move(self, square):
-        is_capturing = self.square_has_enemy(square)
-        if self.guards(square):
+        if self.is_legal_move(square):
             file, rank = self.chessgame.board.file_rank_of_sq(square)
             self.file = file
             self.rank = rank
-            self.square = self.board.square_of_fr(file, rank)
+            self.square = square
             self.update_sprite_position()
-
 
     def guards(self, square):
         return False
 
+    def is_legal_move(self, square):
+        return self.guards(square) and not self.square_has_friendly(square)
+
 
 class King(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "K"
         self.sprite = self.get_sprite()
 
@@ -123,8 +127,8 @@ class King(Piece):
 
 
 class Queen(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "Q"
         self.sprite = self.get_sprite()
 
@@ -132,8 +136,8 @@ class Queen(Piece):
         return Rook.guards(self, square) or Bishop.guards(self, square)
 
 class Bishop(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "B"
         self.sprite = self.get_sprite()
 
@@ -161,8 +165,8 @@ class Bishop(Piece):
         return is_basic_attack and not is_blocked
 
 class Knight(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "N"
         self.sprite = self.get_sprite()
 
@@ -174,8 +178,8 @@ class Knight(Piece):
         return (abs(df) == 2 and abs(dr) == 1) or (abs(dr) == 2 and abs(df) == 1)
 
 class Rook(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "R"
         self.sprite = self.get_sprite()
 
@@ -203,24 +207,27 @@ class Rook(Piece):
         return is_basic_attack and not is_blocked
 
 class Pawn(Piece):
-    def __init__(self, file, rank, player, chessgame):
-        super().__init__(file, rank, player, chessgame)
+    def __init__(self, square, player, chessgame):
+        super().__init__(square, player, chessgame)
         self.letter = "P"
         self.sprite = self.get_sprite()
 
 
-    def can_reach(square):
+    def can_advance(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
         dr = rank -self.rank
+        is_white = self.player == 0
+        is_black = self.player == 1
+        stepr = int(copysign(1, dr))
 
-        if abs(dr) == 2:
-            pass
-        if abs(dr) == 1:
-            pass
-        if abs(df) == 1:
-            pass
-        return False
+        if df != 0: return False
+        on_file = df == 0
+        is_forward = (dr > 0 and is_white) or (dr < 0 and self.player == is_black)
+        is_initial = abs(dr) == 2 and ((is_white and self.rank == 1) or (is_black and self.rank == 6))
+        is_initial_not_blocked = is_initial and self.chessgame.piece_at_square(self.board.square_of_fr(self.file, self.rank + stepr)) is None
+        is_empty = self.chessgame.piece_at_square(square) is None
+        return on_file and is_forward and is_empty and (is_initial_not_blocked or abs(dr) == 1)
 
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
@@ -229,3 +236,8 @@ class Pawn(Piece):
 
         is_diag = abs(df) == 1 and abs(dr) == 1
         return is_diag and ((self.player == 0 and dr > 0) or (self.player == 1 and dr < 0))
+
+    def is_legal_move(self, square):
+        is_capturing = self.guards(square) and self.square_has_enemy(square)
+        is_advancing = self.can_advance(square)
+        return is_capturing or is_advancing
