@@ -87,22 +87,31 @@ class Piece():
 
     def on_click(self, tx, ty):
         if self.is_on(tx, ty):
-            if not self.is_selected:
-                self.is_selected = True
-            else:
+            if self.is_selected:
                 self.is_selected = False
+            else:
+                self.is_selected = True
         else:
             if self.is_selected:
                 self.move(self.chessgame.board.square_of_xy(tx, ty))
                 self.is_selected = False
 
+    def is_my_turn(self):
+        return self.player == self.chessgame.current_turn%2
+
     def move(self, square):
+        is_capturing = self.square_has_enemy(square)
         if self.is_legal_move(square):
+            if is_capturing:
+                self.chessgame.remove_piece_at_sq(square)
+
             file, rank = self.chessgame.board.file_rank_of_sq(square)
             self.file = file
             self.rank = rank
             self.square = square
             self.update_sprite_position()
+
+            self.chessgame.finish_turn()
 
     def guards(self, square):
         return False
@@ -144,7 +153,7 @@ class Bishop(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         is_basic_attack = abs(df) == abs(dr)
         is_blocked = False
@@ -173,7 +182,7 @@ class Knight(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         return (abs(df) == 2 and abs(dr) == 1) or (abs(dr) == 2 and abs(df) == 1)
 
@@ -186,7 +195,7 @@ class Rook(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         is_basic_attack = (df == 0 and dr != 0) or (dr == 0 and df != 0)
         is_blocked = False
@@ -212,6 +221,17 @@ class Pawn(Piece):
         self.letter = "P"
         self.sprite = self.get_sprite()
 
+        file, rank = self.board.file_rank_of_sq(square)
+        front = 1 if self.player == 0 else -1
+        self.ep_square = self.board.square_of_fr(file, rank + front)
+        self.ep_square_is_active = False
+        self.ep_square_is_active_turn = None
+        self.has_moved = False
+
+    def is_initial_move(self, square):
+        file, rank = self.board.file_rank_of_sq(square)
+        r0 = self.rank
+        return not self.has_moved and file==self.file and ((self.player==0 and rank==r0+2) or (self.player==1 and rank==r0-2))
 
     def can_advance(self, square):
         file, rank = self.board.file_rank_of_sq(square)
@@ -224,7 +244,7 @@ class Pawn(Piece):
         if df != 0: return False
         on_file = df == 0
         is_forward = (dr > 0 and is_white) or (dr < 0 and self.player == is_black)
-        is_initial = abs(dr) == 2 and ((is_white and self.rank == 1) or (is_black and self.rank == 6))
+        is_initial = self.is_initial_move(square)
         is_initial_not_blocked = is_initial and self.chessgame.piece_at_square(self.board.square_of_fr(self.file, self.rank + stepr)) is None
         is_empty = self.chessgame.piece_at_square(square) is None
         return on_file and is_forward and is_empty and (is_initial_not_blocked or abs(dr) == 1)
@@ -232,7 +252,7 @@ class Pawn(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         is_diag = abs(df) == 1 and abs(dr) == 1
         return is_diag and ((self.player == 0 and dr > 0) or (self.player == 1 and dr < 0))
@@ -240,4 +260,45 @@ class Pawn(Piece):
     def is_legal_move(self, square):
         is_capturing = self.guards(square) and self.square_has_enemy(square)
         is_advancing = self.can_advance(square)
+        if not self.has_moved:
+            self.manage_en_passant_status(is_advancing, square)
+        self.has_moved = True
         return is_capturing or is_advancing
+
+    def manage_en_passant_status(self, is_advancing, square):
+        if is_advancing and self.is_initial_move(square):
+            self.ep_square_is_active = True
+            self.ep_square_is_active_turn = self.chessgame.current_turn
+            self.chessgame.en_passant_squares.append(self.ep_square)
+
+    def captures_en_passant(self, square):
+        required_rank = 4 if self.player == 0 else 3
+        if self.rank != required_rank: return None
+
+        pawn_file = self.board.file_rank_of_sq(square)[0]
+        pawn_sq = self.board.square_of_fr(pawn_file, self.rank)
+        enemy_pawn = self.chessgame.piece_at_square(pawn_sq)
+        if not isinstance(enemy_pawn, Pawn): return None
+
+        enemy_pawn_advanced_recently = enemy_pawn.ep_square_is_active_turn == self.chessgame.current_turn-1
+
+        if self.rank==required_rank and self.guards(square) and enemy_pawn_advanced_recently:
+            return enemy_pawn
+        return None
+
+    def move(self, square):
+        is_capturing = self.square_has_enemy(square)
+        is_capturing_en_passant = self.captures_en_passant(square)
+        if self.is_legal_move(square) or (is_capturing_en_passant is not None):
+            if is_capturing:
+                self.chessgame.remove_piece_at_sq(square)
+            if is_capturing_en_passant is not None:
+                self.chessgame.remove_piece(is_capturing_en_passant)
+
+            file, rank = self.chessgame.board.file_rank_of_sq(square)
+            self.file = file
+            self.rank = rank
+            self.square = square
+            self.update_sprite_position()
+
+            self.chessgame.finish_turn()
