@@ -96,13 +96,22 @@ class Piece():
                 self.move(self.chessgame.board.square_of_xy(tx, ty))
                 self.is_selected = False
 
+    def is_my_turn(self):
+        return self.player == self.chessgame.current_turn%2
+
     def move(self, square):
+        is_capturing = self.square_has_enemy(square)
         if self.is_legal_move(square):
+            if is_capturing:
+                self.chessgame.remove_piece_at_sq(square)
+
             file, rank = self.chessgame.board.file_rank_of_sq(square)
             self.file = file
             self.rank = rank
             self.square = square
             self.update_sprite_position()
+
+            self.chessgame.finish_turn()
 
     def guards(self, square):
         return False
@@ -144,7 +153,7 @@ class Bishop(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         is_basic_attack = abs(df) == abs(dr)
         is_blocked = False
@@ -186,7 +195,7 @@ class Rook(Piece):
     def guards(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
 
         is_basic_attack = (df == 0 and dr != 0) or (dr == 0 and df != 0)
         is_blocked = False
@@ -212,11 +221,24 @@ class Pawn(Piece):
         self.letter = "P"
         self.sprite = self.get_sprite()
 
+        file, rank = self.board.file_rank_of_sq(square)
+        self.initial_rank = 1 if self.player == 0 else 6
+        self.forward = 1 if self.player == 0 else -1
+        self.has_moved = False if rank==self.initial_rank else True
+
+        self.ep_square = self.board.square_of_fr(file, rank + self.forward)
+        self.ep_square_is_active = False
+        self.ep_square_is_active_turn = None
+
+    def is_initial_move(self, square):
+        file, rank = self.board.file_rank_of_sq(square)
+        r0 = self.rank
+        return not self.has_moved and file==self.file and ((self.player==0 and rank==r0+2) or (self.player==1 and rank==r0-2))
 
     def can_advance(self, square):
         file, rank = self.board.file_rank_of_sq(square)
         df = file - self.file
-        dr = rank -self.rank
+        dr = rank - self.rank
         is_white = self.player == 0
         is_black = self.player == 1
         stepr = int(copysign(1, dr))
@@ -224,7 +246,7 @@ class Pawn(Piece):
         if df != 0: return False
         on_file = df == 0
         is_forward = (dr > 0 and is_white) or (dr < 0 and self.player == is_black)
-        is_initial = abs(dr) == 2 and ((is_white and self.rank == 1) or (is_black and self.rank == 6))
+        is_initial = self.is_initial_move(square)
         is_initial_not_blocked = is_initial and self.chessgame.piece_at_square(self.board.square_of_fr(self.file, self.rank + stepr)) is None
         is_empty = self.chessgame.piece_at_square(square) is None
         return on_file and is_forward and is_empty and (is_initial_not_blocked or abs(dr) == 1)

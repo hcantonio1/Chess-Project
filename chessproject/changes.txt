@@ -1,3 +1,13 @@
+22/08/2020
+Removed en_en_passant implementation
+
+21/08/2020
+Captured pieces removed from the board
+Black and White players now take turns
+En_passant implemented
+Next:
+ChessGame.on_click piece selection should be modified to be intuitive to the clicker
+
 21/08/2020
 Pieces are now initialized using square and not file, rank
 All pieces now move and capture normally, except captured pieces are to be eliminated from the board
